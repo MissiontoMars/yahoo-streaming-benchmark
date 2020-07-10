@@ -26,6 +26,10 @@ public class HighKeyCardinalityGeneratorSource extends LoadGeneratorSource<Strin
     this.numCampaigns = config.numCampaigns;
   }
 
+  public HighKeyCardinalityGeneratorSource(int loadTargetHz, int timeSliceLengthMs) {
+    super(loadTargetHz, timeSliceLengthMs);
+    this.numCampaigns = 1_000_000;
+  }
   @Override
   public String generateElement() {
     if (eventsIdx == eventTypes.length) {

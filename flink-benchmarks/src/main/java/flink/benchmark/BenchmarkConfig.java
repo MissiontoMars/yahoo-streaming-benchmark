@@ -6,6 +6,7 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -90,18 +91,25 @@ public class BenchmarkConfig implements Serializable{
     this(yamlToParameters(yamlFile));
   }
 
+  public BenchmarkConfig(InputStream inputStream) {
+    this(yamlToParameters(inputStream));
+  }
+
   /**
    * Create a config directly from the command line arguments
    */
   public static BenchmarkConfig fromArgs(String[] args) throws FileNotFoundException {
     if(args.length < 1){
-      return new BenchmarkConfig("conf/benchmarkConf.yaml");
+      return new BenchmarkConfig("./benchmarkConf.yaml");
     }
     else{
       return new BenchmarkConfig(args[0]);
     }
   }
 
+  public static BenchmarkConfig fromInputStream(InputStream inputStream) {
+    return new BenchmarkConfig(inputStream);
+  }
   /**
    * Get the parameters
    */
@@ -109,10 +117,10 @@ public class BenchmarkConfig implements Serializable{
     return this.parameters;
   }
 
-  private static ParameterTool yamlToParameters(String yamlFile) throws FileNotFoundException {
+  private static ParameterTool yamlToParameters(InputStream inputStream) {
     // load yaml file
     Yaml yml = new Yaml(new SafeConstructor());
-    Map<String, String> ymlMap = (Map) yml.load(new FileInputStream(yamlFile));
+    Map<String, String> ymlMap = (Map) yml.load(inputStream);
 
     String kafkaZookeeperConnect = getZookeeperServers(ymlMap, String.valueOf(ymlMap.get("kafka.zookeeper.path")));
     String akkaZookeeperQuorum = getZookeeperServers(ymlMap, "");
@@ -133,6 +141,9 @@ public class BenchmarkConfig implements Serializable{
       }
     }
     return ParameterTool.fromMap(ymlMap);
+  }
+  private static ParameterTool yamlToParameters(String yamlFile) throws FileNotFoundException {
+    return yamlToParameters(new FileInputStream(yamlFile));
   }
 
   private static String getZookeeperServers(Map conf, String zkPath) {

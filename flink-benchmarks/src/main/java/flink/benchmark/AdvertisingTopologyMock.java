@@ -34,7 +34,7 @@ public class AdvertisingTopologyMock {
                 .filter(new EventFilterBolt())
                 .<Tuple2<String, String>>project(2, 5)
                 .keyBy(0)
-                .flatMap(new CampaignProcessor(config)).setParallelism(1);
+                .flatMap(new CampaignProcessor(config));
         env.execute();
     }
 
@@ -113,7 +113,7 @@ public class AdvertisingTopologyMock {
             sourceName = "Kafka";
         }
 
-        return env.addSource(source, sourceName).setParallelism(parallelism);
+        return env.addSource(source, sourceName);
     }
 
     /**

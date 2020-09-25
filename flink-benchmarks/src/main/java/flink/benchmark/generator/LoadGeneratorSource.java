@@ -1,6 +1,8 @@
 package flink.benchmark.generator;
 
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -8,6 +10,7 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
  * you require.
  */
 public abstract class LoadGeneratorSource<T> extends RichParallelSourceFunction<T> {
+  private static final Logger LOG = LoggerFactory.getLogger(LoadGeneratorSource.class);
 
   private boolean running = true;
 
@@ -31,6 +34,7 @@ public abstract class LoadGeneratorSource<T> extends RichParallelSourceFunction<
   @Override
   public void run(SourceContext<T> sourceContext) throws Exception {
     int elements = loadPerTimeslice();
+    LOG.info("loadPerTimeslice: {} timeSliceLengthMs: {}", elements, timeSliceLengthMs);
 
     while (running) {
       long emitStartTime = System.currentTimeMillis();
@@ -42,6 +46,7 @@ public abstract class LoadGeneratorSource<T> extends RichParallelSourceFunction<
       if (emitTime < timeSliceLengthMs) {
         Thread.sleep(timeSliceLengthMs - emitTime);
       }
+      LOG.info("emitTime: {}", emitTime);
     }
     sourceContext.close();
   }

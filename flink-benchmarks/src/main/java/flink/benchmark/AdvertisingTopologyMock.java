@@ -1,12 +1,13 @@
 package flink.benchmark;
 
 import flink.benchmark.generator.HighKeyCardinalityGeneratorSource;
-import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple7;
+import flink.benchmark.utils.Tuple3;
+import flink.benchmark.utils.Tuple8;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -18,9 +19,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 
 public class AdvertisingTopologyMock {
     private static final Logger LOG = LoggerFactory.getLogger(AdvertisingTopologyMock.class);
@@ -32,13 +31,28 @@ public class AdvertisingTopologyMock {
         DataStream<String> rawMessageStream = streamSource(config, env, 1);
         rawMessageStream.flatMap(new DeserializeBolt())
                 .filter(new EventFilterBolt())
-                .<Tuple2<String, String>>project(2, 5)
-                .keyBy(0)
+                .map(new MyMapFunction())
+                .keyBy(new MyKeyBySelector())
                 .flatMap(new CampaignProcessor(config));
         env.execute();
     }
 
-    public static class CampaignProcessor extends RichFlatMapFunction<Tuple2<String, String>, String> {
+
+    public static class MyKeyBySelector implements KeySelector<Object, String> {
+
+        @Override
+        public String getKey(Object input) throws Exception {
+            return ((Tuple3<String, String, Object>)input).getF0();
+        }
+    }
+    public static class MyMapFunction implements MapFunction<Tuple8<String, String, String, String, String, String, String, Object>, Object> {
+        @Override
+        public Tuple3<String, String, Object> map(Tuple8<String, String, String, String, String, String, String, Object> input) throws Exception {
+            return Tuple3.of(input.getF2(), input.getF5(), input.getF7());
+        }
+    }
+
+    public static class CampaignProcessor extends RichFlatMapFunction<Object, String> {
 
         BenchmarkConfig config;
         private int eventCount = 0;
@@ -53,8 +67,9 @@ public class AdvertisingTopologyMock {
         }
 
         @Override
-        public void flatMap(Tuple2<String, String> tuple, Collector<String> out) throws Exception {
+        public void flatMap(Object obj, Collector<String> out) throws Exception {
 
+            Tuple3<String, String, Object> tuple = (Tuple3<String, String, Object>)obj;
             String campaign_id = tuple.getField(0);
             String event_time = tuple.getField(1);
 
@@ -68,9 +83,9 @@ public class AdvertisingTopologyMock {
      * Filter down to only "view" events
      */
     public static class EventFilterBolt implements
-            FilterFunction<Tuple7<String, String, String, String, String, String, String>> {
+            FilterFunction<Tuple8<String, String, String, String, String, String, String, Object>> {
         @Override
-        public boolean filter(Tuple7<String, String, String, String, String, String, String> tuple) throws Exception {
+        public boolean filter(Tuple8<String, String, String, String, String, String, String, Object> tuple) throws Exception {
             return tuple.getField(4).equals("view");
         }
     }
@@ -79,21 +94,22 @@ public class AdvertisingTopologyMock {
      * Parse JSON
      */
     public static class DeserializeBolt implements
-            FlatMapFunction<String, Tuple7<String, String, String, String, String, String, String>> {
+            FlatMapFunction<String, Tuple8<String, String, String, String, String, String, String, Object>> {
 
         @Override
-        public void flatMap(String input, Collector<Tuple7<String, String, String, String, String, String, String>> out)
+        public void flatMap(String input, Collector<Tuple8<String, String, String, String, String, String, String, Object>> out)
                 throws Exception {
             JSONObject obj = new JSONObject(input);
-            Tuple7<String, String, String, String, String, String, String> tuple =
-                    new Tuple7<>(
+            Tuple8<String, String, String, String, String, String, String, Object> tuple =
+                    new Tuple8<>(
                             obj.getString("user_id"),
                             obj.getString("page_id"),
                             obj.getString("campaign_id"),
                             obj.getString("ad_type"),
                             obj.getString("event_type"),
                             obj.getString("event_time"),
-                            obj.getString("ip_address"));
+                            obj.getString("ip_address"),
+                            new Object());
             out.collect(tuple);
         }
     }
